@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wake of Fafnir - Character Creator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg:#0b0f0e; --panel:#16221f; --accent:#b08b3b; --muted:#cfc8b8; --stone:#2b3a35;
+}
+html,body{height:100%;}
+body{
+  margin:0; font-family: "Merriweather", Georgia, serif; background: linear-gradient(180deg, #060707 0%, #0c1210 60%); color:var(--muted);
+}
+.container{max-width:980px;margin:28px auto;padding:20px}
+.header{ text-align:center; padding:18px 10px;}
+h1{font-family: 'Cormorant Garamond', serif; color:var(--accent); letter-spacing:1px; margin:0; font-size:2.2rem}
+h2{color:#9aa08c; margin-top:8px; font-weight:400}
+.section{background:linear-gradient(180deg,var(--panel), #11201d); border:1px solid rgba(176,139,59,0.07); padding:18px; margin:18px 0; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+label{display:block; text-align:left; margin:8px 0 4px; color:#d7d2bf}
+select, .weapons-container input[type=checkbox] + span, .ability button{font-family:inherit}
+select{width:100%; padding:8px 10px; border-radius:8px; border:1px solid #0f2a24; background:#0e1a17; color:var(--muted)}
+.description{color:#c7c2ad; margin-top:10px; font-size:0.95em}
+.features{margin-top:8px; color:#cfc8b8}
+.weapons-container{display:flex;flex-direction:column;align-items:flex-start}
+.weapons-container label{margin:6px 0}
+.abilities{display:flex;flex-wrap:wrap; gap:12px; justify-content:center; margin-top:12px}
+.ability{background:var(--stone); padding:8px;border-radius:10px; width:120px; text-align:center}
+.ability-name{font-weight:700; margin-bottom:6px; color:#e7e1cf}
+.ability-score{font-size:1.5rem}
+.ability button{margin:6px 4px;padding:6px 10px;border-radius:6px;border:0;background:rgba(176,139,59,0.12); color:var(--muted); cursor:pointer}
+.ability button:disabled{opacity:0.35; cursor:not-allowed}
+.footer-note{font-size:0.9em; color:#bfb79f}
+.summary{margin-top:20px; padding:14px; border-top:2px solid rgba(176,139,59,0.14)}
+.explain{color:#bfb79f; font-size:0.9em}
+.small-grid{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+@media (max-width:720px){ .ability{width:42%} }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Wake of Fafnir</h1>
+    <h2>Character Creator — a gaslit Norse mystery</h2>
+    <div class="footer-note">Rundown: you woke a dragon by being greedy or careless. Either way, you have questions to ask and clues to break.</div>
+  </div>
+
+  <div class="section">
+    <h3>Race</h3>
+    <label for="race">Choose your ancestry</label>
+    <select id="race">
+      <option value="">--Select Race--</option>
+    </select>
+    <div class="description" id="raceDesc"></div>
+  </div>
+
+  <div class="section">
+    <h3>Class</h3>
+    <label for="charClass">Choose your calling</label>
+    <select id="charClass">
+      <option value="">--Select Class--</option>
+    </select>
+    <div class="description" id="classDesc"></div>
+    <div class="features" id="classFeat"></div>
+  </div>
+
+  <div class="section">
+    <h3>Weapons</h3>
+    <div class="weapons-container" id="weaponOptions"></div>
+    <div class="description" id="weaponDesc"></div>
+  </div>
+
+  <div class="section">
+    <h3>Ability Scores</h3>
+    <p>You have <span id="pointsLeft">7</span> points left to distribute.</p>
+    <div class="abilities" id="abilities"></div>
+
+    <div style="text-align:left;margin-top:12px;color:#cfc8b8;">
+      <p><strong>Strength:</strong> Force, lifting, melee strikes.</p>
+      <p><strong>Dexterity:</strong> Agility, stealth, ranged attacks.</p>
+      <p><strong>Constitution:</strong> Health and resilience.</p>
+      <p><strong>Intelligence:</strong> Investigation, archaeology, arcana.</p>
+      <p><strong>Wisdom:</strong> Perception, willpower, intuition.</p>
+      <p><strong>Charisma:</strong> Presence, persuasion, insight.</p>
+    </div>
+  </div>
+
+  <div class="summary" id="summary">
+    <h3>Character Summary</h3>
+    <p id="summaryRace"></p>
+    <p id="summaryClass"></p>
+    <p id="summaryWeapons"></p>
+    <p id="summaryAbilities"></p>
+    <p id="summaryHP"></p><span class="explain">(Health points — influenced by class and Constitution)</span>
+    <p id="summaryAC"></p><span class="explain">(Armor class — based on class and Dexterity)</span>
+    <p id="summaryFeat"></p>
+    <p id="summaryAttacks"></p>
+  </div>
+</div>
+
+<script>
+// Data
+const races = {
+  "Human": {desc:"Versatile and common. You receive 3 free points to allocate across abilities.", bonus:{}},
+  "Elf": {desc:"Lithe and sharp-eyed. +2 Dexterity, +1 Intelligence, +1 Charisma.", bonus:{Dexterity:2,Intelligence:1,Charisma:1}},
+  "Dwarf": {desc:"Stout and stubborn. +2 Constitution, +1 Wisdom, +1 Strength.", bonus:{Constitution:2,Wisdom:1,Strength:1}},
+  "Halfling": {desc:"Small, clever, and lucky. +2 Charisma, +1 Intelligence, +1 Wisdom.", bonus:{Charisma:2,Intelligence:1,Wisdom:1}},
+  "Goliath": {desc:"Mountain-forged and broad. +2 Strength, +2 Constitution.", bonus:{Strength:2,Constitution:2}}
+};
+
+const classes = {
+  "Adventurer": {desc:"A jack-of-all-trades who survives by wit and quick hands.", feat:"Advantage on Dexterity checks. Cannot be Frightened.", hitBase:18, baseAC:13},
+  "Archeologist": {desc:"A scholar of stone and story; the mine answers to those who listen.", feat:"Advantage on History (Int). Resistant to Psychic damage.", hitBase:15, baseAC:12},
+  "Security": {desc:"A blunt solution wrapped in leather and oath.", feat:"Advantage on Strength checks. +1 AC and +1 to hit.", hitBase:20, baseAC:14},
+  "Arcanist": {desc:"A practitioner of rune and ember. Spells are tools as well as power.", feat:"Advantage on Arcana (Int). Spells: Firebolt (1d4 + Int, unlimited), Detect Magic (3 casts).", hitBase:12, baseAC:12},
+  "Journalist": {desc:"Ink-stained, nose for truth, and quick with a question.", feat:"Advantage on Perception (Wis) and Insight (Cha). Can Inspire allies (+1d4 to a roll).", hitBase:14, baseAC:12},
+  "Medic": {desc:"Bandages and whiskey; keeps people breathing long enough to lie convincingly.", feat:"Advantage on Constitution checks. Bandage: heal 1d6 + Wis (max 8).", hitBase:15, baseAC:12}
+};
+
+const weaponsList = [
+  {id:'one_hand_melee', name:'One-handed melee (Cane, Club, Baton, Fencing Sword)', dmg:'1d6 + Str'},
+  {id:'two_hand_melee', name:'Two-handed melee (Great-axe, Warhammer, Spear)', dmg:'1d10 + Str'},
+  {id:'one_hand_ranged', name:'One-handed ranged (Pistol, Hand-crossbow, Blowgun)', dmg:'1d4 + Dex'},
+  {id:'two_hand_ranged', name:'Two-handed ranged (Rifle, Crossbow, Bow)', dmg:'1d10 + Dex'}
+];
+
+const abilities = ["Strength","Dexterity","Constitution","Intelligence","Wisdom","Charisma"];
+let baseScores = {Strength:0,Dexterity:0,Constitution:0,Intelligence:0,Wisdom:0,Charisma:0};
+let pointsLeft = 7;
+let weaponSelectionLimit = 2; // default: most classes can select up to 2
+
+// Helpers
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+
+// Populate dropdowns
+const raceSelect = document.getElementById('race');
+Object.keys(races).forEach(r=>{ const opt=document.createElement('option'); opt.value=r; opt.textContent=r; raceSelect.appendChild(opt); });
+const classSelect = document.getElementById('charClass');
+Object.keys(classes).forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.textContent=c; classSelect.appendChild(opt); });
+
+// Update functions
+function updateAbilitiesDisplay(){
+  const container=document.getElementById('abilities'); container.innerHTML='';
+  const race=document.getElementById('race').value;
+  const bonuses = races[race]?.bonus || {};
+
+  // recalc points left
+  pointsLeft = 7;
+  if(race==='Human') pointsLeft += 3;
+  pointsLeft -= Object.values(baseScores).reduce((a,b)=>a+b,0);
+  document.getElementById('pointsLeft').textContent = pointsLeft;
+
+  abilities.forEach(stat=>{
+    const div=document.createElement('div'); div.className='ability';
+    const name=document.createElement('div'); name.className='ability-name'; name.textContent=stat;
+    const score=document.createElement('div'); score.className='ability-score';
+    let finalVal = baseScores[stat] + (bonuses[stat]||0);
+    score.textContent = finalVal;
+
+    const minus = document.createElement('button'); minus.textContent='-'; minus.disabled = baseScores[stat]<=0;
+    minus.onclick = ()=>{ if(baseScores[stat]>0){ baseScores[stat]--; updateAbilitiesDisplay(); updateSummary(); } };
+    const plus = document.createElement('button'); plus.textContent='+'; plus.disabled = pointsLeft<=0;
+    plus.onclick = ()=>{ if(pointsLeft>0){ baseScores[stat]++; updateAbilitiesDisplay(); updateSummary(); } };
+
+    div.appendChild(name); div.appendChild(score); div.appendChild(minus); div.appendChild(plus);
+    container.appendChild(div);
+  });
+  updateSummary();
+}
+
+function displayClassFeatures(className){
+  const featContainer=document.getElementById('classFeat'); featContainer.innerHTML='';
+  const c = classes[className];
+  if(!c) return;
+  const p = document.createElement('div'); p.innerHTML = '<strong>Class Feature:</strong> ' + c.feat; featContainer.appendChild(p);
+}
+
+function updateWeapons(){
+  const container=document.getElementById('weaponOptions'); container.innerHTML='';
+  const cls = document.getElementById('charClass').value;
+  if(!cls) return;
+
+  // rules:
+  // Arcanist: cannot use weapons
+  // Journalist & Medic: can only use one one-handed weapon (melee or ranged)
+  if(cls === 'Arcanist'){
+    document.getElementById('weaponDesc').textContent = 'Arcanists channel rune-works — they do not wield weapons.'; return;
+  }
+
+  weaponSelectionLimit = 2;
+  let allowed = weaponsList.slice();
+  if(cls==='Journalist' || cls==='Medic'){
+    // only one-handed options
+    allowed = weaponsList.filter(w=> w.id==='one_hand_melee' || w.id==='one_hand_ranged');
+    weaponSelectionLimit = 1;
+  }
+
+  allowed.forEach((w,i)=>{
+    const id = `wep_${w.id}`;
+    const label = document.createElement('label');
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.id=id; cb.name='weapon'; cb.value=w.name;
+    const span = document.createElement('span'); span.style.marginLeft='8px'; span.textContent = `${w.name} — ${w.dmg}`;
+    cb.onchange = ()=>{
+      const checked = document.querySelectorAll("input[name='weapon']:checked");
+      if(checked.length > weaponSelectionLimit) cb.checked = false;
+      document.getElementById('weaponDesc').textContent = checked.length ? checked[checked.length-1].value : '';
+      updateSummary();
+    };
+    label.appendChild(cb); label.appendChild(span); container.appendChild(label);
+  });
+}
+
+function updateSummary(){
+  const raceVal = document.getElementById('race').value;
+  const classVal = document.getElementById('charClass').value;
+  const checkedWeapons = Array.from(document.querySelectorAll("input[name='weapon']:checked")).map(i=>i.value);
+
+  document.getElementById('summaryRace').textContent = 'Race: ' + (raceVal || '—');
+  document.getElementById('summaryClass').textContent = 'Class: ' + (classVal || '—');
+  document.getElementById('summaryWeapons').textContent = 'Weapons: ' + (checkedWeapons.join(', ') || 'Unarmed');
+
+  const bonuses = races[raceVal]?.bonus || {};
+  const stats = abilities.map(s=>{
+    const val = baseScores[s] + (bonuses[s]||0);
+    return `${s}: ${val}`;
+  }).join(' | ');
+  let humanText = '';
+  if(raceVal==='Human') humanText = ' (3 free points to allocate)';
+  document.getElementById('summaryAbilities').textContent = 'Abilities: ' + stats + humanText;
+
+  // HP calculation (simple formula): class.hitBase + 3 * Con
+  let con = baseScores['Constitution'] + (bonuses['Constitution']||0);
+  let hp = 0;
+  if(classVal && classes[classVal]) hp = classes[classVal].hitBase + 3 * con;
+  document.getElementById('summaryHP').textContent = 'HP: ' + (hp || '—');
+
+  // AC calculation: class.baseAC + floor(Dex/2)
+  let dex = baseScores['Dexterity'] + (bonuses['Dexterity']||0);
+  let ac = classVal && classes[classVal] ? classes[classVal].baseAC + Math.floor(dex/2) : '—';
+  // Goliath or other racial modifiers? none beyond ability bonuses provided.
+  // Security class grants +1 AC
+  if(classVal==='Security') ac = ac + 1;
+  document.getElementById('summaryAC').textContent = 'AC: ' + ac;
+
+  document.getElementById('summaryFeat').textContent = classVal ? ('Feature: ' + classes[classVal].feat) : '';
+
+  // Attacks: default 2
+  let attacks = 2;
+  document.getElementById('summaryAttacks').textContent = 'Number of attacks: ' + attacks;
+}
+
+// Event bindings
+raceSelect.onchange = ()=>{
+  const val = raceSelect.value; document.getElementById('raceDesc').textContent = races[val]?.desc || '';
+  updateAbilitiesDisplay();
+};
+classSelect.onchange = ()=>{
+  const val = classSelect.value; document.getElementById('classDesc').textContent = classes[val]?.desc || '';
+  displayClassFeatures(val); updateWeapons(); updateSummary();
+};
+
+// Init
+updateAbilitiesDisplay();
+updateWeapons();
+
+</script>
+</body>
+</html>
